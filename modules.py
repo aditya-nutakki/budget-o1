@@ -91,10 +91,10 @@ def call_llm(context, temperature = 0.9, mode = "refine"):
     
 
 class Node:
-    def __init__(self, state, parent = []):
+    def __init__(self, state, parent = [], score = 1):
         self.state = state
         self.parent = parent
-        self.score, self.llm_score = 1, 1
+        self.score = score
         self.feedback = ""
         self.context = []
         
@@ -104,30 +104,45 @@ class Node:
         return f"Node(state={self.state}, score={self.score})"
 
 
-    def get_context(self, query, mode = "refine"):
+    # def get_context(self, query, mode = "refine"):
+    #     if mode == "eval":
+    #         context = [{"role": "user", "content": critique_prompt.safe_substitute({
+    #             "query": query,
+    #             # "thoughts": self.parent.state,
+    #             "thoughts": self.state,
+    #             "ans_format": "score"
+    #         })}]
+        
+    #     elif mode == "refine":
+    #         context = [{"role": "user", "content": refinement_prompt.safe_substitute({
+    #             "query": query,
+    #             # "hints": self.parent.feedback,
+    #             "feedback": self.feedback,
+    #             "solution": self.state,
+    #             "ans_format": "solution"
+    #         })}]
+
+    #     elif mode == "ideate":
+    #         context = [[{"role": "user", "content": ideate_prompt.safe_substitute({
+    #             "query": query,
+    #             "ans_format": "steps"
+    #         })}]]
+    #     else:
+    #         print(f"{mode} not defined ! stick or either 'refine', 'eval' or 'ideate'")
+
+    #     return context
+    
+
+    def get_context(self, substitute_args, mode = "refine"):
 
         if mode == "eval":
-            context = [{"role": "user", "content": critique_prompt.safe_substitute({
-                "query": query,
-                # "thoughts": self.parent.state,
-                "thoughts": self.state,
-                "ans_format": "score"
-            })}]
+            context = [{"role": "user", "content": critique_prompt.safe_substitute(**substitute_args)}]
         
         elif mode == "refine":
-            context = [{"role": "user", "content": refinement_prompt.safe_substitute({
-                "query": query,
-                # "hints": self.parent.feedback,
-                "feedback": self.feedback,
-                "solution": self.state,
-                "ans_format": "solution"
-            })}]
+            context = [{"role": "user", "content": refinement_prompt.safe_substitute(**substitute_args)}]
 
         elif mode == "ideate":
-            context = [[{"role": "user", "content": ideate_prompt.safe_substitute({
-                "query": query,
-                "ans_format": "steps"
-            })}]]
+            context = [{"role": "user", "content": ideate_prompt.safe_substitute(**substitute_args)}]
         else:
             print(f"{mode} not defined ! stick or either 'refine', 'eval' or 'ideate'")
 
@@ -137,21 +152,28 @@ class Node:
     def expand(self, query, max_children):
         
         def expand_once(x):
-            feedback, score = call_llm(context = self.get_context(query = query, mode = "eval"), mode = "eval")
+            substitute_args = {"query": query, "thoughts": self.state, "ans_format": "score"}
+            # feedback, score = call_llm(context = self.get_context(query = query, mode = "eval"), mode = "eval")
+            feedback, score = call_llm(context = self.get_context(substitute_args = substitute_args, mode = "eval"), mode = "eval")
             
-            self.feedback = feedback
-            self.llm_score = score
-            print(self.parent)
-            if self.parent:
-                parent_score = self.parent.score
-            else:
-                parent_score = 1
+            # self.feedback = feedback
+            # self.llm_score = score
+            # print(self.parent)
+            # if self.parent:
+            #     parent_score = self.parent.score
+            # else:
+            #     parent_score = 1 # only applicable for the root node
 
-            self.score = self.llm_score * parent_score
-            print(self.score)
+            parent_score = 1 if self.parent else self.parent.score
 
-            refinement = call_llm(context = self.get_context(query = query, mode = "refine"), mode = "refine")
-            return Node(state = refinement, parent = self)
+            # self.score = self.llm_score * parent_score
+            # self.score = score * parent_score
+            # print(self.score)
+            score *= parent_score
+            substitute_args = {"query": query, "feedback": feedback, "solution": self.state, "ans_format": "solution"}
+            # refinement = call_llm(context = self.get_context(query = query, mode = "refine"), mode = "refine")
+            refinement = call_llm(context = self.get_context(substitute_args = substitute_args, mode = "refine"), mode = "refine")
+            return Node(state = refinement, parent = self, score = score)
 
         # wrt max_children; max_depth
         # self.children = [Node(state = generate_random_string(15), parent = self) for _ in range(max_children)] # call this in parallel
@@ -271,6 +293,7 @@ if __name__ == "__main__":
         4. node.eval() must be done within the expand node itself. There is no point to it doing it outside # fixed
         5. verify if <></> is needed in the prompts. Theres ambiguity there - basically verify prompts
         6. Major bug wrt how feedback and score is stored. It is being overwritten
+        7. need to rewrite 'critique' prompt
     """
 
 
