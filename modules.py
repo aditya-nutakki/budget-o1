@@ -6,6 +6,8 @@ from openai import OpenAI
 from prompts import *
 from retry import retry
 
+from sys import exit
+
 from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
@@ -62,45 +64,30 @@ def call_llm(context, temperature = 0.9, mode = "refine"):
 
             return response, 1
 
-    elif mode == "refine":
-        print(f"doing refinement...")
-        # match = re.search(r'<solution>(.*?)<\/solution>', response)
-        # try:
-        #     solution = match.group(1)
-        #     print(solution)  # Output: 8
-        #     return solution
+    return response
+
+    # elif mode == "refine":
+    #     print(f"doing refinement...")
+    #     return response
+
+
+    # elif mode == "ideate":
+    #     print(f"doing ideation")
+    #     match = re.search(r'<steps>(.*?)<\/steps>', response)
+    #     try:
+    #         solution = match.group(1)
+    #         print(solution)  # Output: 8
+    #         return solution
         
-        # except Exception as e:
-        #     print(f"could not extract solution ! because {e}") 
-            
-        #     print()
-        #     print()
-        #     print("--------------------")
+    #     except Exception as e:
+    #         print(f"could not extract solution ! because {e}")             
+    #         print("--------------------")
 
-        #     return response
-        return response
+    #         return response
 
-
-    elif mode == "ideate":
-        print(f"doing ideation")
-        match = re.search(r'<steps>(.*?)<\/steps>', response)
-        try:
-            solution = match.group(1)
-            print(solution)  # Output: 8
-            return solution
-        
-        except Exception as e:
-            print(f"could not extract solution ! because {e}") 
-            
-            print()
-            print()
-            print("--------------------")
-
-            return response
-
-    else:
-        print(f"{mode} not defined; stick to either 'refine' or 'eval'")
-        return response
+    # else:
+    #     print(f"{mode} not defined; stick to either 'refine', 'eval' or 'ideate'")
+    #     return response
     
 
 class Node:
@@ -131,7 +118,7 @@ class Node:
             context = [{"role": "user", "content": refinement_prompt.safe_substitute({
                 "query": query,
                 # "hints": self.parent.feedback,
-                "hints": self.feedback,
+                "feedback": self.feedback,
                 "solution": self.state,
                 "ans_format": "solution"
             })}]
@@ -139,10 +126,7 @@ class Node:
         elif mode == "ideate":
             context = [[{"role": "user", "content": ideate_prompt.safe_substitute({
                 "query": query,
-                # "hints": self.parent.feedback,
-                "hints": self.feedback,
-                "solution": self.state,
-                "ans_format": "solution"
+                "ans_format": "steps"
             })}]]
         else:
             print(f"{mode} not defined ! stick or either 'refine', 'eval' or 'ideate'")
@@ -210,20 +194,39 @@ class Node:
 
 
 
+def get_init_ideas(query):
+    return raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
+
 
 def beam_search(root_node, max_depth, max_children, beam_width):
 
     query = root_node.state
 
     # first_refinement = call_llm([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'solution'})}], mode = "refine")
-    first_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
+    # first_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
+    # second_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
+    # third_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
     
-    print(f"first refinement: {first_refinement}")
-    print()
-    root_node.state = first_refinement
+    # root_node.state = first_refinement
+    # print(f"first refinement: {first_refinement}")
+    # print()
+    # print(f"second refinement: {second_refinement}")
+    # print()
+    # print(f"third refinement: {third_refinement}")
+    # print()
+
+    with ThreadPoolExecutor(max_workers = 10) as executor:
+        _nodes = list(executor.map(get_init_ideas, [query]*max_children))
+
+    _nodes = [Node(state = node, parent = root_node) for node in _nodes]
+
+    print(_nodes)
+    # exit()
+    print("-----")
     # root_node.feedback = first_iteration
     
-    visited = [root_node]
+    # visited = [root_node]
+    visited = _nodes
     # all_nodes = [root_node]
 
     curr_depth = 0
@@ -263,16 +266,18 @@ if __name__ == "__main__":
     """
     Things to do:
         1. Quick break if answer is already achieved.
-        2. generate diversity from 'ideate' mode - it is fundamentally wrong to generate the idea only once and ask it to rate it.
-        3. refinement_prompt has it such that the solution must be enclosed within tags and we extract those tags, consider to not do this
-        4. node.eval() must be done within the expand node itself. There is no point to it doing it outside
+        2. generate diversity from 'ideate' mode - it is fundamentally wrong to generate the idea only once and ask it to rate it. # fixed
+        3. refinement_prompt has it such that the solution must be enclosed within tags and we extract those tags, consider to not do this # fixed; now returns the raw response itself
+        4. node.eval() must be done within the expand node itself. There is no point to it doing it outside # fixed
+        5. verify if <></> is needed in the prompts. Theres ambiguity there - basically verify prompts
+        6. Major bug wrt how feedback and score is stored. It is being overwritten
     """
 
 
     # query = "Solve the following math equation. If x = 3, y = 11, z = 7; compute the value of (x+y-z)^2"
     query = "Let $a,$ $b,$ $c,$ $d$ be positive real numbers such that\n\\begin{align*}\n(a + b)(c + d) &= 143, \\\\\n(a + c)(b + d) &= 150, \\\\\n(a + d)(b + c) &= 169.\n\\end{align*}Find the smallest possible value of $a^2 + b^2 + c^2 + d^2.$"
 
-    best_path = beam_search(root_node = Node(state = query, parent = []), max_depth = 4, max_children = 2, beam_width=1)
+    best_path = beam_search(root_node = Node(state = query, parent = []), max_depth = 3, max_children = 2, beam_width=1)
     print("Best path found:", best_path)
     print()
     print("-----")

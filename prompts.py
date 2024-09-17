@@ -20,11 +20,12 @@ The question is as follows: <question>$query</question>
 
 Current steps taken are as follows: <steps>$solution</steps>
 
-Hints for the solution are as follows: <hints>$hints</hints>
+Feedback for the solution is as follows: <feedback>$feedback</feedback>
 
-Pay attention to the hints provided as well as the steps taken this far. With all of this into account, generate a solution with reference to the query.
+Pay attention to the feedback provided as well as the steps taken this far. With all of this into account, generate a solution with reference to the query.
 Think step-by-step and then generate the solution enclosed within <$ans_format></$ans_format> tags.
 """)
+
 
 ideate_prompt = Template("""You will be given a problem to solve. Your job is to provide an outline/idea of the key steps you plan to take to solve it, formatted within <$ans_format></$ans_format>.
 <query>$query</query>""")
