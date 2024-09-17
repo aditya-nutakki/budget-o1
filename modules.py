@@ -66,71 +66,16 @@ def call_llm(context, temperature = 0.9, mode = "refine"):
 
     return response
 
-    # elif mode == "refine":
-    #     print(f"doing refinement...")
-    #     return response
-
-
-    # elif mode == "ideate":
-    #     print(f"doing ideation")
-    #     match = re.search(r'<steps>(.*?)<\/steps>', response)
-    #     try:
-    #         solution = match.group(1)
-    #         print(solution)  # Output: 8
-    #         return solution
-        
-    #     except Exception as e:
-    #         print(f"could not extract solution ! because {e}")             
-    #         print("--------------------")
-
-    #         return response
-
-    # else:
-    #     print(f"{mode} not defined; stick to either 'refine', 'eval' or 'ideate'")
-    #     return response
-    
 
 class Node:
     def __init__(self, state, parent = [], score = 1):
         self.state = state
         self.parent = parent
         self.score = score
-        self.feedback = ""
-        self.context = []
-        
 
     def __repr__(self):
         # return f"Node(state={self.state}, score={self.score}, parent={self.parent})"
         return f"Node(state={self.state}, score={self.score})"
-
-
-    # def get_context(self, query, mode = "refine"):
-    #     if mode == "eval":
-    #         context = [{"role": "user", "content": critique_prompt.safe_substitute({
-    #             "query": query,
-    #             # "thoughts": self.parent.state,
-    #             "thoughts": self.state,
-    #             "ans_format": "score"
-    #         })}]
-        
-    #     elif mode == "refine":
-    #         context = [{"role": "user", "content": refinement_prompt.safe_substitute({
-    #             "query": query,
-    #             # "hints": self.parent.feedback,
-    #             "feedback": self.feedback,
-    #             "solution": self.state,
-    #             "ans_format": "solution"
-    #         })}]
-
-    #     elif mode == "ideate":
-    #         context = [[{"role": "user", "content": ideate_prompt.safe_substitute({
-    #             "query": query,
-    #             "ans_format": "steps"
-    #         })}]]
-    #     else:
-    #         print(f"{mode} not defined ! stick or either 'refine', 'eval' or 'ideate'")
-
-    #     return context
     
 
     def get_context(self, substitute_args, mode = "refine"):
@@ -153,53 +98,30 @@ class Node:
         
         def expand_once(x):
             substitute_args = {"query": query, "thoughts": self.state, "ans_format": "score"}
-            # feedback, score = call_llm(context = self.get_context(query = query, mode = "eval"), mode = "eval")
             feedback, score = call_llm(context = self.get_context(substitute_args = substitute_args, mode = "eval"), mode = "eval")
-            
-            # self.feedback = feedback
-            # self.llm_score = score
+
             # print(self.parent)
-            # if self.parent:
-            #     parent_score = self.parent.score
-            # else:
-            #     parent_score = 1 # only applicable for the root node
+            if self.parent:
+                parent_score = self.parent.score
+            else:
+                parent_score = 1 # only applicable for the root node
 
-            parent_score = 1 if self.parent else self.parent.score
 
-            # self.score = self.llm_score * parent_score
-            # self.score = score * parent_score
-            # print(self.score)
             score *= parent_score
             substitute_args = {"query": query, "feedback": feedback, "solution": self.state, "ans_format": "solution"}
             # refinement = call_llm(context = self.get_context(query = query, mode = "refine"), mode = "refine")
             refinement = call_llm(context = self.get_context(substitute_args = substitute_args, mode = "refine"), mode = "refine")
             return Node(state = refinement, parent = self, score = score)
 
-        # wrt max_children; max_depth
-        # self.children = [Node(state = generate_random_string(15), parent = self) for _ in range(max_children)] # call this in parallel
 
-        # with ThreadPoolExecutor(max_workers = 5) as executor:
-        #     self.children = list(executor.map(expand_once, list(range(max_children))))
-        self.children = []
-        for _ in range(max_children):
-            self.children.append(expand_once(_))
+        with ThreadPoolExecutor(max_workers = 5) as executor:
+            self.children = list(executor.map(expand_once, list(range(max_children))))
+        
+        # self.children = []
+        # for _ in range(max_children):
+        #     self.children.append(expand_once(_))
 
 
-    def eval(self):
-        
-        # context = self._get_parent_context()
-        # feedback, llm_score = call_llm(context = [], mode = "eval") # should return a single value which denotes the q-value of the node
-        
-        # self.parent.feedback = feedback
-        # llm_score will have to be extracted; 
-        # self.state = new_response generated;
-        # ultimately; context has to be built 
-
-        parent_score = self.parent.score
-        # self.score = llm_score * self.parent.score
-        self.score = self.llm_score * parent_score
-        
-        
     def path(self):
         
         node, path_back = self, []
@@ -223,19 +145,6 @@ def get_init_ideas(query):
 def beam_search(root_node, max_depth, max_children, beam_width):
 
     query = root_node.state
-
-    # first_refinement = call_llm([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'solution'})}], mode = "refine")
-    # first_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
-    # second_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
-    # third_refinement = raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
-    
-    # root_node.state = first_refinement
-    # print(f"first refinement: {first_refinement}")
-    # print()
-    # print(f"second refinement: {second_refinement}")
-    # print()
-    # print(f"third refinement: {third_refinement}")
-    # print()
 
     with ThreadPoolExecutor(max_workers = 10) as executor:
         _nodes = list(executor.map(get_init_ideas, [query]*max_children))
@@ -292,8 +201,9 @@ if __name__ == "__main__":
         3. refinement_prompt has it such that the solution must be enclosed within tags and we extract those tags, consider to not do this # fixed; now returns the raw response itself
         4. node.eval() must be done within the expand node itself. There is no point to it doing it outside # fixed
         5. verify if <></> is needed in the prompts. Theres ambiguity there - basically verify prompts
-        6. Major bug wrt how feedback and score is stored. It is being overwritten
-        7. need to rewrite 'critique' prompt
+        6. Major bug wrt how feedback and score is stored. It is being overwritten # fixed
+        7. need to rewrite 'critique' prompt # done; improved performance
+        8. refactor code # done
     """
 
 
