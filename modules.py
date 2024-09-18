@@ -12,13 +12,18 @@ from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 load_dotenv()
 
-port = 8000
-base_url = f"http://localhost:{port}/v1"
-api_key = "token-abc123"
 
-# client = OpenAI(base_url = base_url, api_key = api_key)
-client = OpenAI()
+if model_name not in ["gpt-4o", "gpt-4o-mini"]:
+    port = 8000
+    base_url = f"http://localhost:{port}/v1"
+    api_key = "token-abc123"
 
+    client = OpenAI(base_url = base_url, api_key = api_key)
+
+else:
+    client = OpenAI()
+
+num_pattern = re.compile(r'\-?\d+\.\d+|\-?\d+')
 
 def generate_random_string(max_length):
     characters = string.ascii_letters + string.digits + string.punctuation
@@ -55,9 +60,23 @@ def call_llm(context, temperature = 0.9, mode = "refine"):
         
         except Exception as e:
             print(f"could not extract score ! because {e}") 
-            print("--------------------")
+            print("Trying again ----------------")
+            
+            # some models cant follow the instruction of putting it within <score> tags.
+            score = response.split("Score")
+            if len(score) > 1:
+                score = score[-1]
+                if "/" in score:
+                    score = score.split("/")[0]
+                
+                score = num_pattern.findall(score)
+                if score:
+                    score = int(score[0])
 
-            return response, 1
+            else:
+                score = 1
+            print(f"score: {score}")
+            return response, score
 
     return response
 
@@ -80,10 +99,11 @@ def get_context(substitute_args, mode = "refine"):
 
 
 class Node:
-    def __init__(self, state, parent = [], score = 1):
+    def __init__(self, state, parent = [], score = 1, feedback = ""):
         self.state = state
         self.parent = parent
         self.score = score
+        self.feedback = feedback
 
     def __repr__(self):
         # return f"Node(state={self.state}, score={self.score}, parent={self.parent})"
@@ -107,7 +127,7 @@ class Node:
             substitute_args = {"query": query, "feedback": feedback, "solution": self.state, "ans_format": "solution"}
             # refinement = call_llm(context = self.get_context(query = query, mode = "refine"), mode = "refine")
             refinement = call_llm(context = get_context(substitute_args = substitute_args, mode = "refine"), mode = "refine")
-            return Node(state = refinement, parent = self, score = score)
+            return Node(state = refinement, parent = self, score = score, feedback = feedback)
 
 
         with ThreadPoolExecutor(max_workers = 5) as executor:
@@ -125,7 +145,7 @@ class Node:
             # path_back.append(node.state)
             path_back.append(node)
             node = node.parent
-        return list(reversed(path_back)) # literal top to bottom path ie [root, layer1_node, layer2_node, final_node]
+        return list(reversed(path_back))[1:] # literal top to bottom path ie [root, layer1_node, layer2_node, final_node]; skipping the 0th node as it is the root node
 
 
     # def save_node(self, save_path):
@@ -134,13 +154,15 @@ class Node:
         data = {}
         path = self.path()
 
-        states, scores = [], []
+        states, scores, feedback = [], [], []
         for i, node in enumerate(path):
             states.append(node.state)
             scores.append(node.score)
+            feedback.append(node.feedback)
         
         data["states"] = states
-        data["scores"] = scores   
+        data["scores"] = scores
+        data["feedback"] = feedback
 
         # with open(save_path, 'w') as f:
         #     json.dump(data, f, indent=4, ensure_ascii = False)
@@ -209,13 +231,8 @@ if __name__ == "__main__":
     """
     Things to do:
         1. Quick break if answer is already achieved.
-        2. generate diversity from 'ideate' mode - it is fundamentally wrong to generate the idea only once and ask it to rate it. # fixed
-        3. refinement_prompt has it such that the solution must be enclosed within tags and we extract those tags, consider to not do this # fixed; now returns the raw response itself
-        4. node.eval() must be done within the expand node itself. There is no point to it doing it outside # fixed
-        5. verify if <></> is needed in the prompts. Theres ambiguity there - basically verify prompts
-        6. Major bug wrt how feedback and score is stored. It is being overwritten # fixed
-        7. need to rewrite 'critique' prompt # done; improved performance
-        8. refactor code # done
+        2. need to rewrite 'critique' prompt # done; improved performance
+        3. There _might_ be a bug wrt scoring; take a look 
     """
 
 
@@ -229,8 +246,12 @@ if __name__ == "__main__":
     print("-----")
     print()
     for v in best_path:
-        x = v.path()
-        for _node in x:
-            print(_node.state, _node.score)
-        print()
+        # x = v.path()
+        # for _node in x:
+        #     print(_node.state, _node.score)
+        # print()
+        data = v.serialize()
+        with open("./dummy.json", "w") as f:
+            json.dump(data, f)
+
 
