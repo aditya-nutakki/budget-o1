@@ -106,7 +106,6 @@ class Node:
         self.feedback = feedback
 
     def __repr__(self):
-        # return f"Node(state={self.state}, score={self.score}, parent={self.parent})"
         return f"Node(state={self.state}, score={self.score})"
     
 
@@ -148,7 +147,6 @@ class Node:
         return list(reversed(path_back))[1:] # literal top to bottom path ie [root, layer1_node, layer2_node, final_node]; skipping the 0th node as it is the root node
 
 
-    # def save_node(self, save_path):
     def serialize(self):
         # should serialize the object so it can be saved as a JSON
         data = {}
@@ -163,10 +161,6 @@ class Node:
         data["states"] = states
         data["scores"] = scores
         data["feedback"] = feedback
-
-        # with open(save_path, 'w') as f:
-        #     json.dump(data, f, indent=4, ensure_ascii = False)
-        #     print(f"Saved to {save_path}")
 
         return data
 
@@ -186,13 +180,9 @@ def beam_search(query, max_depth, max_children, beam_width):
     _nodes = [Node(state = node, parent = root_node) for node in _nodes]
 
     print(_nodes)
-    # exit()
     print("-----")
-    # root_node.feedback = first_iteration
     
-    # visited = [root_node]
     visited = _nodes
-    # all_nodes = [root_node]
 
     curr_depth = 0
     while visited and curr_depth < max_depth:
@@ -207,22 +197,13 @@ def beam_search(query, max_depth, max_children, beam_width):
             print(f"Node's children are: {node.children}")
             print()
             for child_node in node.children:
-                # child_node.eval() # adds a score property to it
                 visited.append(child_node)
-                # all_nodes.append(child_node)
             
         # visited.sort(key = lambda n: n.val, reverse = True)[:beam_width]
         visited = sorted(visited, key = lambda n: n.score, reverse = True)[:beam_width]
-
         curr_depth += 1
-        print(curr_depth)
 
-    print(visited)
-    # print("----")
-    # print(all_nodes, len(all_nodes))
     print("----")
-    # print(sorted(all_nodes, key = lambda n: n.score, reverse = True)[:beam_width])
-
     return visited
 
 

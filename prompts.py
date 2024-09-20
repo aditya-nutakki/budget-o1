@@ -48,7 +48,29 @@ Potential pitfalls for the solution are as follows: <feedback>$feedback</feedbac
 With all of this into account, Think step-by-step and then generate the answer to the question while avoiding the pitfalls.
 """)
 
+
+refinement_tuner_prompt = Template("""You will be given a query, a rough outline on how to approach it and the current steps taken this far. """)
+
+
+
+
+
 ideate_prompt = Template("""You will be given a problem to solve. Your job is to provide an outline/idea of the key steps you plan to take to solve it. The problem is as follows: <query>$query</query>""")
+
+
+ideate_tuner_prompt = Template("""You will be given a problem to solve and a rough outline on how to solve it. Your job is to think along those lines and correct the outline with respect to the query to be more clear and precise.
+The problem is as follows: <query>$query</query>
+
+\n<current_idea>$idea</current_idea>.
+
+ONLY mention the reiterated idea. Do NOT compute anything and ONLY refine the idea if needed. Skip the preamble and epilogue""")
+
+
+
+
+
+
+
 
 # as per the evaluation prompt used by models like llama3, gemma etc from https://arxiv.org/pdf/2206.14858 (check Listing 2)
 math4shot_prompt = """

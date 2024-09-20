@@ -5,7 +5,7 @@ from config import *
 import hashlib
 from utils import *
 
-split, level = "train", "4"
+split, level = "train", "5"
 dataset = load_dataset("lighteval/MATH", 'all',split = split, trust_remote_code = True)
 dataset = dataset.filter(lambda example: example["level"].endswith(level))
 dataset.shuffle()
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # evaluating only on Level 5 problems of lighteval/MATH
 
     # split = "test"
-    dataset.map(run, num_proc = 4)
+    dataset.map(run, num_proc = 8)
     # for i, x in enumerate(dataset):
     #     print(f"doing {i}")
     #     run(x)
