@@ -5,7 +5,8 @@ from config import *
 import hashlib
 from utils import *
 
-split, level = "train", "5"
+
+split, level = "train", "3"
 dataset = load_dataset("lighteval/MATH", 'all',split = split, trust_remote_code = True)
 dataset = dataset.filter(lambda example: example["level"].endswith(level))
 dataset.shuffle()
@@ -18,7 +19,7 @@ os.makedirs(save_dir, exist_ok = True)
 print(model_name, save_dir)
 
 
-def run(sample):
+def run(sample, model, if_exists = ""):
     query, ground_truth, problem_type = sample["problem"], sample["solution"], sample["type"] # specific to this dataset; 
 
     _file_name = f"{hashlib.md5(str(sample).encode()).hexdigest()}.json"
@@ -45,7 +46,7 @@ def run(sample):
     # print(f"answer: {ground_truth}")
 
     serialized_results = {}
-    results = beam_search(query, max_depth = 3, max_children = 3, beam_width = 2)
+    results = beam_search(query, max_depth = 3, max_children = 3, beam_width = 2, model = model)
     # for node_result in results:
     #     result = node_result.serialize()    
         
@@ -67,10 +68,11 @@ if __name__ == "__main__":
     # evaluating only on Level 5 problems of lighteval/MATH
 
     # split = "test"
-    dataset.map(run, num_proc = 8)
-    # for i, x in enumerate(dataset):
-    #     print(f"doing {i}")
-    #     run(x)
-    #     # print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-    #     break
+    model = Model(client = 'openai', model_name = "gpt-4o-mini")
+    # expanded_run = partial(run, model = model)
+    # dataset.map(expanded_run, num_proc = 8)
+    for i, x in enumerate(dataset):
+        print(f"doing {i}")
+        run(x, model = model)
+        break
 

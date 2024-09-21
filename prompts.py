@@ -52,23 +52,12 @@ With all of this into account, Think step-by-step and then generate the answer t
 refinement_tuner_prompt = Template("""You will be given a query, a rough outline on how to approach it and the current steps taken this far. """)
 
 
+ideate_prompt = Template("""You will be given a problem to solve. Your job is to provide an outline/idea of the key steps you plan to take to solve it. The problem is as follows: <query>$query</query>. Do NOT solve the query but ONLY mention the steps to solve it""")
 
 
-
-ideate_prompt = Template("""You will be given a problem to solve. Your job is to provide an outline/idea of the key steps you plan to take to solve it. The problem is as follows: <query>$query</query>""")
-
-
-ideate_tuner_prompt = Template("""You will be given a problem to solve and a rough outline on how to solve it. Your job is to think along those lines and correct the outline with respect to the query to be more clear and precise.
-The problem is as follows: <query>$query</query>
-
-\n<current_idea>$idea</current_idea>.
-
-ONLY mention the reiterated idea. Do NOT compute anything and ONLY refine the idea if needed. Skip the preamble and epilogue""")
-
-
-
-
-
+# using this method to check because regex fails
+check_answer_prompt = Template(r"""You will be given a detailed answer (in the form of a passage) and you should extract the numerical answer from it. The answers are usually numbers, fractions, upper/lower bounds in latex format. ie \[\boxed{5}]\ where the answer you're supposed to output is 5. Similarly with \[\frac{5}{4}}]\ , the answer would be 5/4. If there is no answer in the passage, return "none" as a string
+<answer>$answer</answer>""")
 
 
 
