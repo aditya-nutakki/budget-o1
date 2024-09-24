@@ -122,6 +122,26 @@ def get_dpo_data(tuner_model, student_model, split, level = "3", if_exists = "sk
             _ = list(executor.map(_do_one_sample, _samples))
 
 
+def consolidate_data(path):
+    files = [os.path.join(path, file) for file in os.listdir(path)]
+    
+    consolidated_data = {"prompt": [], "chosen": [], "rejected": []}
+    
+    for i, file in enumerate(files):
+        file = read_json(file)
+        
+        consolidated_data["prompt"].extend(file["prompt"])
+        consolidated_data["chosen"].extend(file["chosen"])
+        consolidated_data["rejected"].extend(file["rejected"])
+
+    write_json(consolidated_data, "./dpo_data.json")
+
+
+
+
+
+
+
 if __name__ == "__main__":
     # tuner = Tuner(client = "anthropic", model_name = "claude-3-haiku-20240307")
     save_dir = "./beam_search/"
@@ -138,4 +158,4 @@ if __name__ == "__main__":
     # print(tuner.call(context = [{"role":"user", "content": "hi how are you "}]))
     
     get_dpo_data(tuner_model, student_model, split = "train", level = "2")
-
+    consolidate_data("./beam_search/math/dpo/gpt-4o-mini/all")

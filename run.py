@@ -6,7 +6,7 @@ import hashlib
 from utils import *
 
 
-split, level = "train", "3"
+split, level = "test", "2"
 dataset = load_dataset("lighteval/MATH", 'all',split = split, trust_remote_code = True)
 dataset = dataset.filter(lambda example: example["level"].endswith(level))
 dataset.shuffle()
@@ -21,7 +21,7 @@ print(model_name, save_dir)
 
 def run(sample, model, if_exists = ""):
     query, ground_truth, problem_type = sample["problem"], sample["solution"], sample["type"] # specific to this dataset; 
-
+    print(f"Solving: {query}")
     _file_name = f"{hashlib.md5(str(sample).encode()).hexdigest()}.json"
     save_path = os.path.join(save_dir, _file_name)
 
@@ -46,7 +46,7 @@ def run(sample, model, if_exists = ""):
     # print(f"answer: {ground_truth}")
 
     serialized_results = {}
-    results = beam_search(query, max_depth = 3, max_children = 3, beam_width = 2, model = model)
+    results = beam_search(query, max_depth = 2, max_children = 2, beam_width = 1, model = model)
     # for node_result in results:
     #     result = node_result.serialize()    
         
@@ -68,11 +68,13 @@ if __name__ == "__main__":
     # evaluating only on Level 5 problems of lighteval/MATH
 
     # split = "test"
-    model = Model(client = 'openai', model_name = "gpt-4o-mini")
+    # model = Model(client = 'openai', model_name = "gpt-4o-mini")
+    model = Model(client = 'openai', model_name = "gemma-math", base_url=f"http://localhost:{port}/v1/", api_key= "token-abc123")
+    # model = Model(client = 'openai', model_name = "/mnt/d/work/models/gemma-1.1-2b-it", base_url=f"http://localhost:{port}/v1/", api_key= "token-abc123")
     # expanded_run = partial(run, model = model)
     # dataset.map(expanded_run, num_proc = 8)
     for i, x in enumerate(dataset):
         print(f"doing {i}")
         run(x, model = model)
-        break
+        # break
 
