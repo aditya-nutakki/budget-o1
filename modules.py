@@ -132,9 +132,19 @@ if __name__ == "__main__":
 
     # query = "Solve the following math equation. If x = 3, y = 11, z = 7; compute the value of (x+y-z)^2"
     query = "Let $a,$ $b,$ $c,$ $d$ be positive real numbers such that\n\\begin{align*}\n(a + b)(c + d) &= 143, \\\\\n(a + c)(b + d) &= 150, \\\\\n(a + d)(b + c) &= 169.\n\\end{align*}Find the smallest possible value of $a^2 + b^2 + c^2 + d^2.$"
+    
+    # make sure to have your keys in .env 
+    model = Model(client = "openai", model_name = "gpt-4o-mini")
+    # model = Model(client = "anthropic", model_name = "claude-3-5-sonnet-20240620")
 
-    best_path = beam_search(query = query, max_depth = 3, max_children = 2, beam_width=1)
-    print("Best path found:", best_path)
+    # ensure that vLLM is running in the background for this to work. Change port and api_key as needed
+    # port = 8000
+    # base_url = f"http://localhost:{port}/v1"
+    # api_key = "token-abc123"
+    # model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = model_name)
+
+    result = beam_search(query = query, max_depth = 3, max_children = 2, beam_width=1, model = model)
+    print(result)
     print()
     print("-----")
     print()
