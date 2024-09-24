@@ -22,7 +22,6 @@ These (prompt, winning_response, losing_response) should be done for both genera
 Then train another model with DPO.
 """
 
-
 model_name = model_name.split("/")[-1]
 
 def load_my_data(split = "train", level = "5"):
@@ -51,7 +50,7 @@ def get_dpo_data(tuner_model, student_model, split, level = "3", if_exists = "sk
         _file_name = f"{hashlib.md5(str(sample).encode()).hexdigest()}.json"
         save_path = os.path.join(save_dir, _file_name)
         print(f"Going to save it to {save_path}")
-        sleep(1.5)
+        sleep(1.5) # only to stop from rate limit errors
         
         if os.path.exists(save_path):
             if if_exists == "skip":
@@ -138,10 +137,6 @@ def consolidate_data(path):
 
 
 
-
-
-
-
 if __name__ == "__main__":
     # tuner = Tuner(client = "anthropic", model_name = "claude-3-haiku-20240307")
     save_dir = "./beam_search/"
@@ -157,5 +152,5 @@ if __name__ == "__main__":
     student_model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = model_name)
     # print(tuner.call(context = [{"role":"user", "content": "hi how are you "}]))
     
-    get_dpo_data(tuner_model, student_model, split = "train", level = "2")
+    get_dpo_data(tuner_model, student_model, split = "train", level = "4")
     consolidate_data("./beam_search/math/dpo/gpt-4o-mini/all")

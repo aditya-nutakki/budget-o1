@@ -1,10 +1,8 @@
-import os, json, re
 from openai import OpenAI
 from prompts import *
 from retry import retry
 from config import *
 from utils import *
-from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
@@ -12,7 +10,7 @@ load_dotenv()
 
 
 if model_name not in ["gpt-4o", "gpt-4o-mini"]:
-    port = 8000
+    port = 8000 # the port vllm is running on
     base_url = f"http://localhost:{port}/v1"
     api_key = "token-abc123"
 
@@ -20,75 +18,6 @@ if model_name not in ["gpt-4o", "gpt-4o-mini"]:
 
 else:
     client = OpenAI()
-
-# num_pattern = re.compile(r'\-?\d+\.\d+|\-?\d+')
-
-
-# def raw_call(context, temperature = 0.5):
-#     response = client.chat.completions.create(
-#         # model = "gpt-4o-mini",
-#         model = model_name,
-#         messages = context,
-#         temperature = temperature,
-#     )
-#     return response.choices[0].message.content
-
-
-# @retry()
-# def call_llm(context, temperature = 0.9, mode = "refine"):
-
-#     response = raw_call(context = context, temperature = temperature)
-#     print(response)
-
-#     # extract score through regex and return the number as an int
-#     if mode == "eval":
-#         print(f"doing eval...")
-#         match = re.search(r'<score>(.*?)<\/score>', response)
-#         try:
-#             score = match.group(1)
-#             print(score)
-            
-#             remaining_text = re.sub(r'<score>.*?<\/score>', '', response).strip()
-#             return remaining_text, int(score)
-        
-#         except Exception as e:
-#             print(f"could not extract score ! because {e}") 
-#             print("Trying again ----------------")
-            
-#             # some models cant follow the instruction of putting it within <score> tags.
-#             score = response.split("Score")
-#             if len(score) > 1:
-#                 score = score[-1]
-#                 if "/" in score:
-#                     score = score.split("/")[0]
-                
-#                 score = num_pattern.findall(score)
-#                 if score:
-#                     score = int(score[0])
-
-#             else:
-#                 score = 1
-#             print(f"score: {score}")
-#             return response, score
-
-#     return response
-
-
-
-# def get_context(substitute_args, mode = "refine"):
-
-#     if mode == "eval":
-#         context = [{"role": "user", "content": critique_prompt.safe_substitute(**substitute_args)}]
-    
-#     elif mode == "refine":
-#         context = [{"role": "user", "content": refinement_prompt.safe_substitute(**substitute_args)}]
-
-#     elif mode == "ideate":
-#         context = [{"role": "user", "content": ideate_prompt.safe_substitute(**substitute_args)}]
-#     else:
-#         print(f"{mode} not defined ! stick or either 'refine', 'eval' or 'ideate'")
-
-#     return context
 
 
 class Node:
@@ -119,8 +48,6 @@ class Node:
 
             score *= parent_score
             substitute_args = {"query": query, "feedback": feedback, "solution": self.state, "ans_format": "solution"}
-            # refinement = call_llm(context = self.get_context(query = query, mode = "refine"), mode = "refine")
-            # refinement = call_llm(context = get_context(substitute_args = substitute_args, mode = "refine"), mode = "refine")
             refinement = model.call(context = get_context(substitute_args = substitute_args, mode = "refine"))
             return Node(state = refinement, parent = self, score = score, feedback = feedback)
 
@@ -161,10 +88,6 @@ class Node:
         return data
 
 
-# def get_init_ideas(query):
-#     return raw_call([{"role": "user", "content": ideate_prompt.safe_substitute({'query': query, 'ans_format': 'steps'})}])
-
-# def beam_search(root_node, max_depth, max_children, beam_width):
 def beam_search(query, max_depth, max_children, beam_width, model):
     
     def get_init_ideas(query):
@@ -207,30 +130,11 @@ def beam_search(query, max_depth, max_children, beam_width, model):
 
 if __name__ == "__main__":
 
-    """
-    Things to do:
-        1. Quick break if answer is already achieved.
-        2. need to rewrite 'critique' prompt # done; improved performance
-        3. There _might_ be a bug wrt scoring; take a look 
-    """
-
-
     # query = "Solve the following math equation. If x = 3, y = 11, z = 7; compute the value of (x+y-z)^2"
     query = "Let $a,$ $b,$ $c,$ $d$ be positive real numbers such that\n\\begin{align*}\n(a + b)(c + d) &= 143, \\\\\n(a + c)(b + d) &= 150, \\\\\n(a + d)(b + c) &= 169.\n\\end{align*}Find the smallest possible value of $a^2 + b^2 + c^2 + d^2.$"
 
-    # best_path = beam_search(root_node = Node(state = query, parent = []), max_depth = 3, max_children = 2, beam_width=1)
     best_path = beam_search(query = query, max_depth = 3, max_children = 2, beam_width=1)
     print("Best path found:", best_path)
     print()
     print("-----")
     print()
-    for v in best_path:
-        # x = v.path()
-        # for _node in x:
-        #     print(_node.state, _node.score)
-        # print()
-        data = v.serialize()
-        with open("./dummy.json", "w") as f:
-            json.dump(data, f)
-
-

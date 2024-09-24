@@ -1,40 +1,32 @@
-import os
 import torch
 
-import transformers
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from datasets import load_dataset, Dataset
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from trl import DPOTrainer, DPOConfig, SFTTrainer, SFTConfig
-import bitsandbytes as bnb
 
 from config import *
 from utils import *
 
 
 dpo_data_path = "./dpo_data.json"
-new_model = "/mnt/d/work/models/google-1.1-dpo"
+new_model = "/mnt/d/work/models/google-1.1-math-ft"
 
 
 def chatml_format(example):
 
     # Format instruction
     message = [{"role": "user", "content": example['prompt']}, {"role": "assistant", "content": example['chosen']}]
-    # prompt = tokenizer.apply_chat_template([message], tokenize=False, add_generation_prompt=True)
     prompt = tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=False)
-
-    # Format chosen answer
-    # chosen = example['chosen'] +  tokenizer.eos_token
-
-    # # Format rejected answer
-    # rejected = example['rejected'] +  tokenizer.eos_token
-
-    # return {
-    #     "prompt": prompt,
-    #     "chosen": chosen,
-    #     "rejected": rejected,
-    # }
     return {"text": prompt}
+
+
+def chatml_format_dpo(example):
+    return {
+        "prompt": tokenizer.apply_chat_template([{"role": "user", "content": example["prompt"]}], tokenize = False, add_generation_prompt=True),
+        "chosen": tokenizer.apply_chat_template([{"role": "user", "content": example["chosen"]}], tokenize = False, add_generation_prompt=False),
+        "chosen": tokenizer.apply_chat_template([{"role": "user", "content": example["rejected"]}], tokenize = False, add_generation_prompt=False),
+    }
 
 # Load dataset
 # dataset = load_dataset("Intel/orca_dpo_pairs")['train']
@@ -43,23 +35,11 @@ dataset = Dataset.from_dict(read_json(dpo_data_path))
 # Save columns
 original_columns = dataset.column_names
 
-# Tokenizer
+# Tokenizer has a padding token so no need to set pad_token = eos_token
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 tokenizer.padding_side = "left"
 
-# Format dataset
-dataset = dataset.map(
-    chatml_format,
-    remove_columns=original_columns
-)
 
-
-
-# Print sample
-print(dataset[1])
-print()
-print(dataset)
-print()
 # LoRA configuration
 bnb_config = BitsAndBytesConfig(
     load_in_4bit= True,
@@ -83,13 +63,16 @@ model = AutoModelForCausalLM.from_pretrained(
 
 
 model.config.use_cache = False
-print("Loaded first model")
+print("Loaded model")
 
 
 def train_dpo_model():
+
+    dataset = dataset.map(chatml_format_dpo)
+
     dpo_config = DPOConfig(
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=4,
         gradient_checkpointing=True,
         learning_rate=5e-5,
         lr_scheduler_type="cosine",
@@ -97,7 +80,7 @@ def train_dpo_model():
         save_strategy="no",
         logging_steps=1,
         output_dir=new_model,
-        optim="paged_adamw_32bit",
+        optim="paged_adamw_8bit",
         warmup_steps=100,
         bf16=True,
         ref_model_init_kwargs=None,
@@ -132,38 +115,30 @@ def train_dpo_model():
 
 def train_sft_model():
 
-    # Training arguments
-    # training_args = TrainingArguments(
-    #     per_device_train_batch_size=2,
-    #     gradient_accumulation_steps=2,
-    #     gradient_checkpointing=True,
-    #     learning_rate=5e-5,
-    #     lr_scheduler_type="cosine",
-    #     max_steps=200,
-    #     dataset_text_field="text",
-    #     save_strategy="no",
-    #     logging_steps=1,
-    #     output_dir=new_model,
-    #     optim="paged_adamw_32bit",
-    #     warmup_steps=100,
-    #     bf16=True,
-    # )   
+    # Format dataset
+    dataset = dataset.map(
+        chatml_format,
+        remove_columns=original_columns
+    )
 
+    print(dataset[0])
+    print()
+    print(dataset)
+    print()
 
     sft_config = SFTConfig(
-        output_dir="./dummy_nopadeos_leftpad",
-        # num_train_epochs=1,
+        output_dir="./sft_model",
+        num_train_epochs=1,
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
         gradient_checkpointing=True,
-        learning_rate=5e-5,
+        learning_rate=8e-5,
         lr_scheduler_type="cosine",
-        max_steps=800,
+        # max_steps=800,
         dataset_text_field="text",
         save_strategy="steps",
         save_steps = 60,
         logging_steps=10,
-        # optim="paged_adamw_32bit",
         optim="paged_adamw_8bit",
         warmup_steps=100,
         bf16=False,
@@ -178,11 +153,7 @@ def train_sft_model():
         peft_config=peft_config,
         max_seq_length=2048,
         tokenizer=tokenizer,
-        packing=True,
-        # dataset_kwargs={
-        #     "add_special_tokens": False,  # We template with special tokens
-        #     "append_concat_token": False, # No need to add additional separator token
-        # }
+        packing=True
     )
 
     print("Starting to train ...")
@@ -191,4 +162,8 @@ def train_sft_model():
 
     print("Training Finished")
 
-train_sft_model()
+
+if __name__ == "__main__":
+    
+    # train_dpo_model() # needs higher GPU memory
+    train_sft_model()
