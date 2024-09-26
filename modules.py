@@ -131,19 +131,23 @@ def beam_search(query, max_depth, max_children, beam_width, model):
 if __name__ == "__main__":
 
     # query = "Solve the following math equation. If x = 3, y = 11, z = 7; compute the value of (x+y-z)^2"
-    query = "Let $a,$ $b,$ $c,$ $d$ be positive real numbers such that\n\\begin{align*}\n(a + b)(c + d) &= 143, \\\\\n(a + c)(b + d) &= 150, \\\\\n(a + d)(b + c) &= 169.\n\\end{align*}Find the smallest possible value of $a^2 + b^2 + c^2 + d^2.$"
-    
+    # query = "Let $a,$ $b,$ $c,$ $d$ be positive real numbers such that\n\\begin{align*}\n(a + b)(c + d) &= 143, \\\\\n(a + c)(b + d) &= 150, \\\\\n(a + d)(b + c) &= 169.\n\\end{align*}Find the smallest possible value of $a^2 + b^2 + c^2 + d^2.$"
+    # query = "The expression $\\sqrt{(\\sqrt{56})(\\sqrt{126})}$ can be simplified to $a\\sqrt b$, where $a$ and $b$ are integers and $b$ is not divisible by any perfect square greater than 1. What is $a+b$?"
+    # query = "The lengths, in order, of four consecutive sides of an equiangular hexagon are 1, 7, 2 and 4 units, respectively. What is the sum of the lengths of the two remaining sides?"
+    # query = "Let \\[f(x) = \\left\\{\n\\begin{array}{cl}\n\\frac{x}{21} & \\text{ if }x\\text{ is a multiple of 3 and 7}, \\\\\n3x & \\text{ if }x\\text{ is only a multiple of 7}, \\\\\n7x & \\text{ if }x\\text{ is only a multiple of 3}, \\\\\nx+3 & \\text{ if }x\\text{ is not a multiple of 3 or 7}.\n\\end{array}\n\\right.\\]If $f^a(x)$ means the function is nested $a$ times (for example, $f^2(x)=f(f(x))$), what is the smallest value of $a$ greater than 1 that satisfies $f(2)=f^a(2)$?"
+    query = "Factor the following expression: $145b^2 +29b$."
     # make sure to have your keys in .env 
-    model = Model(client = "openai", model_name = "gpt-4o-mini")
+    # model = Model(client = "openai", model_name = "gpt-4o-mini")
     # model = Model(client = "anthropic", model_name = "claude-3-5-sonnet-20240620")
 
     # ensure that vLLM is running in the background for this to work. Change port and api_key as needed
-    # port = 8000
-    # base_url = f"http://localhost:{port}/v1"
-    # api_key = "token-abc123"
-    # model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = model_name)
+    port = 8000
+    base_url = f"http://localhost:{port}/v1"
+    api_key = "token-abc123"
+    model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = "gemma-math")
+    # model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = "/mnt/d/work/models/gemma-1.1-2b-it")
 
-    result = beam_search(query = query, max_depth = 3, max_children = 2, beam_width=1, model = model)
+    result = beam_search(query = query, max_depth = 2, max_children = 3, beam_width=1, model = model)
     print(result)
     print()
     print("-----")

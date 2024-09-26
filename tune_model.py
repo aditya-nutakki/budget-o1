@@ -30,10 +30,6 @@ def chatml_format_dpo(example):
 
 # Load dataset
 # dataset = load_dataset("Intel/orca_dpo_pairs")['train']
-dataset = Dataset.from_dict(read_json(dpo_data_path))
-
-# Save columns
-original_columns = dataset.column_names
 
 # Tokenizer has a padding token so no need to set pad_token = eos_token
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -55,20 +51,22 @@ peft_config = LoraConfig(
 )
 
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_name, 
-    quantization_config=bnb_config, 
-    device_map={"":0}, 
-    low_cpu_mem_usage = True)
-
-
-model.config.use_cache = False
-print("Loaded model")
-
-
 def train_dpo_model():
+    dataset = Dataset.from_dict(read_json(dpo_data_path))
 
     dataset = dataset.map(chatml_format_dpo)
+    dataset.shuffle()
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, 
+        quantization_config=bnb_config, 
+        device_map={"":0}, 
+        low_cpu_mem_usage = True)
+
+
+    model.config.use_cache = False
+    print("Loaded model")
+
 
     dpo_config = DPOConfig(
         per_device_train_batch_size=1,
@@ -114,17 +112,33 @@ def train_dpo_model():
 
 
 def train_sft_model():
+    dataset = Dataset.from_dict(read_json(dpo_data_path))
+
+    # Save columns
+    original_columns = dataset.column_names
 
     # Format dataset
     dataset = dataset.map(
         chatml_format,
         remove_columns=original_columns
     )
-
+    dataset.shuffle()
     print(dataset[0])
     print()
     print(dataset)
     print()
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, 
+        quantization_config=bnb_config, 
+        device_map={"":0}, 
+        low_cpu_mem_usage = True
+    )
+
+
+    model.config.use_cache = False
+    print("Loaded model")
+
 
     sft_config = SFTConfig(
         output_dir="./sft_model",
@@ -132,13 +146,13 @@ def train_sft_model():
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
         gradient_checkpointing=True,
-        learning_rate=8e-5,
+        learning_rate=9e-5,
         lr_scheduler_type="cosine",
         # max_steps=800,
         dataset_text_field="text",
         save_strategy="steps",
         save_steps = 60,
-        logging_steps=10,
+        logging_steps=4,
         optim="paged_adamw_8bit",
         warmup_steps=100,
         bf16=False,
@@ -153,17 +167,17 @@ def train_sft_model():
         peft_config=peft_config,
         max_seq_length=2048,
         tokenizer=tokenizer,
-        packing=True
+        packing=True,
     )
 
     print("Starting to train ...")
-    sft_trainer.train()
+    sft_trainer.train(resume_from_checkpoint = "/mnt/d/work/projects/budget-o1/dummy_nopadeos_leftpad/checkpoint-540")
     sft_trainer.save_model(new_model)
 
     print("Training Finished")
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    # train_dpo_model() # needs higher GPU memory
-    train_sft_model()
+# train_dpo_model() # needs higher GPU memory
+train_sft_model()
