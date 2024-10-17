@@ -9,17 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-if model_name not in ["gpt-4o", "gpt-4o-mini"]:
-    port = 8000 # the port vllm is running on
-    base_url = f"http://localhost:{port}/v1"
-    api_key = "token-abc123"
-
-    client = OpenAI(base_url = base_url, api_key = api_key)
-
-else:
-    client = OpenAI()
-
-
 class Node:
     def __init__(self, state, parent = [], score = 1, feedback = ""):
         self.state = state
@@ -141,10 +130,11 @@ if __name__ == "__main__":
     # model = Model(client = "anthropic", model_name = "claude-3-5-sonnet-20240620")
 
     # ensure that vLLM is running in the background for this to work. Change port and api_key as needed
-    port = 8000
-    base_url = f"http://localhost:{port}/v1"
-    api_key = "token-abc123"
-    model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = "gemma-math")
+    model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = model_name)
+    # model = Model(client = "openai", model_name = "gpt-4o-mini")
+    # model = Model(client = "anthropic", model_name = "claude-3-haiku-20240307")
+    
+
     # model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = "/mnt/d/work/models/gemma-1.1-2b-it")
 
     result = beam_search(query = query, max_depth = 2, max_children = 3, beam_width=1, model = model)

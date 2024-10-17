@@ -146,9 +146,9 @@ if __name__ == "__main__":
     # tuner_model = Model(client = "anthropic", model_name = "claude-3-5-sonnet-20240620") # use this for harder problems - level 4 or level 5
     
     # make sure your server via vLLM is running
-    port = 8000
-    base_url = f"http://localhost:{port}/v1"
-    api_key = "token-abc123"
+    # port = 8000
+    # base_url = f"http://localhost:{port}/v1"
+    # api_key = "token-abc123"
     student_model = Model(client = "openai", base_url = base_url, api_key = api_key, model_name = model_name)
     # print(tuner.call(context = [{"role":"user", "content": "hi how are you "}]))
     
