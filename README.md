@@ -1,3 +1,5 @@
+Read the article - [medium](https://medium.com/@adityanutakki6250/trying-to-scale-test-time-compute-with-llms-d1ec8564ed03)
+
 # Setup
 
 ## Changes in config.py
